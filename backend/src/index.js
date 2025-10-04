@@ -22,7 +22,14 @@ init();
 app.use("/api/products", productsRouter);
 app.use("/api/orders", ordersRouter);
 
+// ✅ Route test
 app.get("/", (req, res) => res.send("🚀 API e-commerce opérationnelle !"));
 
-const PORT = 4000;
-app.listen(PORT, () => console.log(`✅ Serveur en écoute sur http://localhost:${PORT}`));
+// ✅ Ne démarre le serveur que si on exécute ce fichier directement
+if (require.main === module) {
+  const PORT = process.env.PORT || 4000;
+  app.listen(PORT, () => console.log(`✅ Serveur en écoute sur http://localhost:${PORT}`));
+}
+
+// ✅ Exporter app pour les tests
+module.exports = app;
