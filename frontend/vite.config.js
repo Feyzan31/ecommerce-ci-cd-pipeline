@@ -5,7 +5,12 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/api': 'http://localhost:4000', // ✅ redirige toutes les requêtes /api vers le backend
+      '/api': 'http://localhost:4000', // proxy backend
     },
+  },
+  test: {
+    environment: 'jsdom', // simule le navigateur
+    setupFiles: './src/__test__/setupTests.js',
+    globals: true,
   },
 })

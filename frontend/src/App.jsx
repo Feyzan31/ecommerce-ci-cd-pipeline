@@ -285,17 +285,30 @@ function CheckoutForm({ onCancel, onSubmit }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="block text-sm font-medium mb-1">Nom</label>
+        <label
+          htmlFor="name"
+          className="block text-sm font-medium mb-1"
+        >
+          Nom
+        </label>
         <input
+          id="name"
           value={name}
           onChange={(e) => setName(e.target.value)}
           className="w-full border rounded px-3 py-2"
           required
         />
       </div>
+
       <div>
-        <label className="block text-sm font-medium mb-1">Email</label>
+        <label
+          htmlFor="email"
+          className="block text-sm font-medium mb-1"
+        >
+          Email
+        </label>
         <input
+          id="email"
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -303,15 +316,23 @@ function CheckoutForm({ onCancel, onSubmit }) {
           required
         />
       </div>
+
       <div>
-        <label className="block text-sm font-medium mb-1">Adresse</label>
+        <label
+          htmlFor="address"
+          className="block text-sm font-medium mb-1"
+        >
+          Adresse
+        </label>
         <textarea
+          id="address"
           value={address}
           onChange={(e) => setAddress(e.target.value)}
           className="w-full border rounded px-3 py-2"
           rows="3"
         />
       </div>
+
       <div className="flex gap-2 pt-2">
         <button
           type="submit"
