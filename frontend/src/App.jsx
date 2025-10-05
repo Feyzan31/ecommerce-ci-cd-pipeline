@@ -1,9 +1,17 @@
 /*
 E-Commerce Starter (React + Tailwind)
 Connecté à un backend Express + SQLite
+Avec système d'authentification et interface admin
 */
 
 import React, { useEffect, useState } from "react";
+import { Routes, Route, Navigate, useNavigate, Link } from "react-router-dom";
+import { useAuth } from "./context/AuthContext";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import Profile from './pages/Profile';
+import ProtectedRoute from "./components/ProtectedRoute";
+import Admin from "./Admin";
 
 const STORAGE_KEYS = { CART: "ecom_cart_v1", ORDERS: "ecom_orders_v1" };
 
@@ -24,7 +32,8 @@ function useLocalStorage(key, initial) {
   return [state, setState];
 }
 
-export default function App() {
+// Composant Home (ton ancien App.jsx)
+function Home() {
   const [products, setProducts] = useState([]);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All");
@@ -32,6 +41,8 @@ export default function App() {
   const [cart, setCart] = useLocalStorage(STORAGE_KEYS.CART, []);
   const [orders, setOrders] = useLocalStorage(STORAGE_KEYS.ORDERS, []);
   const [showCheckout, setShowCheckout] = useState(false);
+  const { currentUser, logout } = useAuth();
+  const navigate = useNavigate();
 
   // 🔹 Charger les produits depuis le backend
   useEffect(() => {
@@ -92,33 +103,59 @@ export default function App() {
   // 🔹 Envoyer la commande au backend
   async function proceedCheckout(customer) {
     const total = cart.reduce((s, i) => s + i.price * i.qty, 0);
+    const token = localStorage.getItem('token'); // Récupérer le token
+
     try {
       const res = await fetch("http://localhost:4000/api/orders", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ customer, items: cart, total }),
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}` // Ajouter le token dans le header
+        },
+        body: JSON.stringify({ 
+          customer, 
+          items: cart, 
+          total
+        }),
       });
+      
       const data = await res.json();
-      if (!res.ok) throw new Error("Erreur API");
+      if (!res.ok) throw new Error(data.error || "Erreur API");
 
+      // Mettre à jour le state local aussi
       setOrders((prev) => [
-        { id: data.id, customer, items: cart, total, createdAt: new Date().toISOString() },
+        { 
+          id: data.id, 
+          customer, 
+          items: cart, 
+          total, 
+          createdAt: new Date().toISOString(),
+          userId: currentUser?.id 
+        },
         ...prev,
       ]);
+      
       clearCart();
       setShowCheckout(false);
       alert("✅ Commande enregistrée avec succès !\nID: " + data.id);
     } catch (e) {
       console.error("Erreur lors de l'enregistrement de la commande :", e);
-      alert("❌ Impossible d'enregistrer la commande. Vérifiez le serveur backend.");
+      alert("❌ Impossible d'enregistrer la commande: " + e.message);
     }
   }
+
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
 
   return (
     <div className="min-h-screen bg-gray-100 text-gray-900 w-full">
       <header className="bg-white shadow w-full">
         <div className="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
           <h1 className="text-2xl font-bold">MyShop</h1>
+          
+          {/* Barre de recherche et filtres */}
           <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
             <input
               value={query}
@@ -143,6 +180,53 @@ export default function App() {
             >
               Panier ({cart.reduce((s, i) => s + i.qty, 0)})
             </button>
+          </div>
+
+          {/* Menu utilisateur */}
+          <div className="flex items-center gap-4">
+            {currentUser ? (
+              <div className="flex items-center gap-3">
+                {/* Lien vers l'admin si l'utilisateur est admin */}
+                {currentUser.role === 'admin' && (
+                  <Link
+                    to="/admin"
+                    className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-sm transition duration-200"
+                  >
+                    Admin
+                  </Link>
+                )}
+                <Link
+                  to="/profile"
+                  className="text-blue-600 hover:text-blue-800 text-sm"
+                >
+                  Mon Profil
+                </Link>
+                <span className="text-sm text-gray-700">
+                  Bonjour, {currentUser.name}
+                </span>
+                <button
+                  onClick={handleLogout}
+                  className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm transition duration-200"
+                >
+                  Déconnexion
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <Link
+                  to="/login"
+                  className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm transition duration-200"
+                >
+                  Connexion
+                </Link>
+                <Link
+                  to="/register"
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm transition duration-200"
+                >
+                  Inscription
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -227,10 +311,17 @@ export default function App() {
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setShowCheckout(true)}
+                  onClick={() => {
+                    if (!currentUser) {
+                      alert("Veuillez vous connecter pour passer commande");
+                      navigate('/login');
+                      return;
+                    }
+                    setShowCheckout(true);
+                  }}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex-1 transition duration-200"
                 >
-                  Passer commande
+                  {currentUser ? "Passer commande" : "Se connecter pour commander"}
                 </button>
                 <button
                   onClick={clearCart}
@@ -244,19 +335,72 @@ export default function App() {
 
           <div className="mt-6 text-xs text-gray-500">
             Commandes enregistrées: {orders.length}
+            {currentUser && (
+              <div className="mt-2">
+                Connecté en tant que: {currentUser.email}
+              </div>
+            )}
           </div>
         </aside>
       </main>
+
+      {/* Modal de détails produit */}
+      {selected && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex flex-col md:flex-row gap-6">
+              <img
+                src={selected.image || `https://picsum.photos/400/300?random=${selected.id}`}
+                alt={selected.title}
+                className="w-full md:w-1/2 h-64 object-cover rounded-lg"
+              />
+              <div className="flex-1">
+                <h2 className="text-2xl font-bold mb-2">{selected.title}</h2>
+                <p className="text-gray-600 mb-4">{selected.description}</p>
+                <div className="mb-4">
+                  <div className="text-xl font-semibold text-green-600">
+                    {selected.price.toFixed(2)} €
+                  </div>
+                  <div className="text-sm text-gray-500">Stock: {selected.stock}</div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      addToCart(selected, 1);
+                      setSelected(null);
+                    }}
+                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded transition duration-200"
+                  >
+                    Ajouter au panier
+                  </button>
+                  <button
+                    onClick={() => setSelected(null)}
+                    className="border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 px-4 py-2 rounded transition duration-200"
+                  >
+                    Fermer
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Checkout modal */}
       {showCheckout && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-semibold mb-4">Passer commande</h3>
+            <h3 className="text-xl font-semibold mb-4">
+              Passer commande {currentUser && `- ${currentUser.name}`}
+            </h3>
             {cart.length === 0 ? (
               <div className="text-gray-500">Votre panier est vide.</div>
             ) : (
-              <CheckoutForm onCancel={() => setShowCheckout(false)} onSubmit={proceedCheckout} />
+              <CheckoutForm 
+                onCancel={() => setShowCheckout(false)} 
+                onSubmit={proceedCheckout}
+                currentUser={currentUser}
+              />
             )}
           </div>
         </div>
@@ -264,16 +408,17 @@ export default function App() {
 
       <footer className="bg-white border-t mt-12 w-full">
         <div className="max-w-7xl mx-auto px-4 py-6 text-sm text-gray-600 text-center">
-          © MyShop - Connected Demo
+          © MyShop - Connected Demo {currentUser && `| Connecté: ${currentUser.name}`}
         </div>
       </footer>
     </div>
   );
 }
 
-function CheckoutForm({ onCancel, onSubmit }) {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+// CheckoutForm avec pré-remplissage pour les utilisateurs connectés
+function CheckoutForm({ onCancel, onSubmit, currentUser }) {
+  const [name, setName] = useState(currentUser?.name || "");
+  const [email, setEmail] = useState(currentUser?.email || "");
   const [address, setAddress] = useState("");
 
   function handleSubmit(e) {
@@ -330,6 +475,7 @@ function CheckoutForm({ onCancel, onSubmit }) {
           onChange={(e) => setAddress(e.target.value)}
           className="w-full border rounded px-3 py-2"
           rows="3"
+          placeholder="Adresse de livraison"
         />
       </div>
 
@@ -349,5 +495,26 @@ function CheckoutForm({ onCancel, onSubmit }) {
         </button>
       </div>
     </form>
+  );
+}
+
+// Composant App principal avec routing
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+      <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+      <Route 
+        path="/" 
+        element={
+          <ProtectedRoute>
+            <Home />
+          </ProtectedRoute>
+        } 
+      />
+      <Route path="*" element={<Navigate to="/" />} />
+    </Routes>
   );
 }
