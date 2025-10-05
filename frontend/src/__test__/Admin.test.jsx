@@ -2,14 +2,46 @@ import "@testing-library/jest-dom";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import Admin from "../Admin";
+import { AuthProvider } from "../context/AuthContext";
+import { BrowserRouter } from "react-router-dom";
+
+// Wrapper pour Admin avec AuthProvider
+const renderAdmin = () => {
+  return render(
+    <BrowserRouter>
+      <AuthProvider>
+        <Admin />
+      </AuthProvider>
+    </BrowserRouter>
+  );
+};
 
 describe("Admin dashboard", () => {
+  beforeEach(() => {
+    // Reset avant chaque test
+    localStorage.clear();
+    vi.clearAllMocks();
+    
+    // Simuler un admin connecté
+    localStorage.setItem('token', 'fake-admin-token');
+    localStorage.setItem('currentUser', JSON.stringify({
+      id: 1,
+      name: 'Admin',
+      email: 'admin@eshop.com',
+      role: 'admin'
+    }));
+  });
+
   afterEach(() => vi.restoreAllMocks());
 
   test("affiche les produits et les commandes", async () => {
-    render(<Admin />);
+    // Petit délai pour l'initialisation de l'authentification
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    renderAdmin();
+    
     expect(await screen.findByText(/Liste des produits/i)).toBeInTheDocument();
-    expect(screen.getByText("Tee")).toBeInTheDocument();
+    expect(await screen.findByText("Tee")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: /commandes/i }));
     expect(await screen.findByText(/Liste des commandes/i)).toBeInTheDocument();
@@ -17,7 +49,13 @@ describe("Admin dashboard", () => {
   });
 
   test("ajoute un produit", async () => {
-    render(<Admin />);
+    // Petit délai pour l'initialisation de l'authentification
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    renderAdmin();
+
+    // Attendre que le composant soit chargé
+    await screen.findByText(/Liste des produits/i);
 
     // remplir formulaire
     await userEvent.type(screen.getByPlaceholderText("Titre"), "Nouveau produit");
@@ -34,7 +72,14 @@ describe("Admin dashboard", () => {
   });
 
   test("supprime un produit", async () => {
-    render(<Admin />);
+    // Petit délai pour l'initialisation de l'authentification
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    renderAdmin();
+    
+    // Attendre que les produits soient chargés
+    await screen.findByText("Tee");
+    
     const deleteBtn = await screen.findByRole("button", { name: /🗑️/i });
     await userEvent.click(deleteBtn);
 
