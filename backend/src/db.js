@@ -23,6 +23,7 @@ function init() {
     name TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL,
+    role TEXT DEFAULT 'user',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );`);
 
@@ -34,13 +35,14 @@ function init() {
     insert.run('Wireless Headphones', 129.99, 'Electronics', 5, 'Noise-cancelling over-ear headphones.');
   }
 
-  // ⭐ AJOUT DE L'UTILISATEUR SOUAD ⭐
+  // ⭐ AJOUT DE L'UTILISATEUR SOUAD et d'un admin ⭐
   const userCount = db.prepare('SELECT COUNT(*) as c FROM users').get().c;
   if (userCount === 0) {
-    const hashedPassword = bcrypt.hashSync('password', 10); // Hash du mot de passe
-    const insertUser = db.prepare('INSERT INTO users (name, email, password) VALUES (?, ?, ?)');
-    insertUser.run('Souad', 'souad@gtest.com', hashedPassword);
-    console.log('✅ Utilisateur Souad créé avec succès');
+    const hashedPassword = bcrypt.hashSync('admin123', 10);
+    const insertUser = db.prepare('INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)');
+    insertUser.run('Admin', 'admin@eshop.com', hashedPassword, 'admin');
+    insertUser.run('Souad', 'souad@gtest.com', bcrypt.hashSync('password', 10), 'user');
+    console.log('✅ Utilisateur Souad et admin créés avec succès');
   }
 }
 

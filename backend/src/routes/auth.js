@@ -2,7 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const router = express.Router();
-const { db } = require('../db'); // ⬅️ Adapte le chemin
+const { db } = require('../db');
 
 const JWT_SECRET = 'ton_secret_super_securise';
 
@@ -30,14 +30,19 @@ router.post('/register', async (req, res) => {
                     .run(name, email, hashedPassword);
 
     const token = jwt.sign(
-      { id: result.lastInsertRowid, email: email },
+      { id: result.lastInsertRowid, email: email, role: 'user' }, // ⬅️ AJOUT DU ROLE
       JWT_SECRET,
       { expiresIn: '24h' }
     );
 
     res.json({
       success: true,
-      user: { id: result.lastInsertRowid, name, email },
+      user: { 
+        id: result.lastInsertRowid, 
+        name, 
+        email,
+        role: 'user'  // ⬅️ AJOUT DU ROLE
+      },
       token
     });
   } catch (error) {
@@ -68,14 +73,19 @@ router.post('/login', async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: user.id, email: user.email },
+      { id: user.id, email: user.email, role: user.role }, // ⬅️ AJOUT DU ROLE
       JWT_SECRET,
       { expiresIn: '24h' }
     );
 
     res.json({
       success: true,
-      user: { id: user.id, name: user.name, email: user.email },
+      user: { 
+        id: user.id, 
+        name: user.name, 
+        email: user.email,
+        role: user.role  // ⬅️ AJOUT DU ROLE
+      },
       token
     });
   } catch (error) {

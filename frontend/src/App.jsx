@@ -1,7 +1,7 @@
 /*
 E-Commerce Starter (React + Tailwind)
 Connecté à un backend Express + SQLite
-Avec système d'authentification
+Avec système d'authentification et interface admin
 */
 
 import React, { useEffect, useState } from "react";
@@ -11,6 +11,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Profile from './pages/Profile';
 import ProtectedRoute from "./components/ProtectedRoute";
+import Admin from "./Admin";
 
 const STORAGE_KEYS = { CART: "ecom_cart_v1", ORDERS: "ecom_orders_v1" };
 
@@ -185,6 +186,15 @@ function Home() {
           <div className="flex items-center gap-4">
             {currentUser ? (
               <div className="flex items-center gap-3">
+                {/* Lien vers l'admin si l'utilisateur est admin */}
+                {currentUser.role === 'admin' && (
+                  <Link
+                    to="/admin"
+                    className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-sm transition duration-200"
+                  >
+                    Admin
+                  </Link>
+                )}
                 <Link
                   to="/profile"
                   className="text-blue-600 hover:text-blue-800 text-sm"
@@ -474,6 +484,7 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+      <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
       <Route 
         path="/" 
         element={
