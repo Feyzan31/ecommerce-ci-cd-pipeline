@@ -38,18 +38,21 @@ pipeline {
       }
     }
 
-    stage('Tests Frontend') {
-      steps {
-        dir('frontend') {
-          bat 'npm test || echo "Tests échoués (frontend)"'
+    stage('Tests') {
+      parallel {
+        stage('Frontend Tests') {
+          steps {
+            dir('frontend') {
+              bat 'npm test || echo "⚠️ Tests échoués (frontend)"'
+            }
+          }
         }
-      }
-    }
-
-    stage('Tests Backend') {
-      steps {
-        dir('backend') {
-          bat 'npm test || echo "Tests échoués (backend)"'
+        stage('Backend Tests') {
+          steps {
+            dir('backend') {
+              bat 'npm test || echo "⚠️ Tests échoués (backend)"'
+            }
+          }
         }
       }
     }
@@ -59,7 +62,7 @@ pipeline {
     stage('Build Docker Images') {
       steps {
         script {
-          echo "Construction des images Docker..."
+          echo "🐳 Construction des images Docker..."
           bat 'docker build -t ecommerce-frontend ./frontend'
           bat 'docker build -t ecommerce-backend ./backend'
         }
@@ -84,5 +87,12 @@ pipeline {
     }
   }
 
-  
+  post {
+    success {
+      echo ' Pipeline CI/CD terminée avec succès !'
+    }
+    failure {
+      echo ' Erreur pendant le déploiement.'
+    }
+  }
 }
