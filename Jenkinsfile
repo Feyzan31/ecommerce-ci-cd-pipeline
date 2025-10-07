@@ -43,14 +43,14 @@ pipeline {
         stage('Frontend tests') {
           steps {
             dir('frontend') {
-              bat 'npm test || echo "⚠️ Tests échoués (frontend)"'
+              bat 'npm test || echo "Tests échoués (frontend)"'
             }
           }
         }
         stage('Backend tests') {
           steps {
             dir('backend') {
-              bat 'npm test || echo "⚠️ Tests échoués (backend)"'
+              bat 'npm test || echo  "Tests échoués (backend)"'
             }
           }
         }
