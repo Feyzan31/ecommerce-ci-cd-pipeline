@@ -72,12 +72,29 @@ pipeline {
     }
   }
 
-  post {
-    success { echo 'Pipeline CI/CD terminée avec succès !' }
-    failure { echo 'Erreur pendant le pipeline.' }
-    always {
-      echo 'Fin du pipeline.'
-      bat 'docker ps -a'
+  stage('Analyse SonarQube') {
+  steps {
+    withSonarQubeEnv('SonarQube') {
+      dir('frontend') {
+        bat '''
+          npx sonar-scanner ^
+          -Dsonar.projectKey=frontend ^
+          -Dsonar.sources=src ^
+          -Dsonar.host.url=http://localhost:9000 ^
+          -Dsonar.login=%SONAR_AUTH_TOKEN%
+        '''
+      }
+      dir('backend') {
+        bat '''
+          npx sonar-scanner ^
+          -Dsonar.projectKey=backend ^
+          -Dsonar.sources=src ^
+          -Dsonar.host.url=http://localhost:9000 ^
+          -Dsonar.login=%SONAR_AUTH_TOKEN%
+        '''
+      }
     }
   }
+}
+
 }
