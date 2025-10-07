@@ -59,13 +59,7 @@ pipeline {
       }
     }
 
-    stage('Build Backend') {
-      steps {
-        dir('backend') {
-          bat 'npm run build'
-        }
-      }
-    }
+    
   }
 
   post {
