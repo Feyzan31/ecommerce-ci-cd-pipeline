@@ -12,14 +12,14 @@ pipeline {
 
   stages {
 
-    stage('📦 Checkout code') {
+    stage('Checkout code') {
       steps {
         echo "Récupération du code source..."
         git branch: 'main', url: 'https://github.com/souadbouzgaou/ecommerce-ci-cd-pipeline.git'
       }
     }
 
-    stage('📥 Installation des dépendances') {
+    stage('Installation des dépendances') {
       parallel {
         stage('Frontend') {
           steps {
@@ -38,7 +38,7 @@ pipeline {
       }
     }
 
-    stage('🧪 Lancer les tests') {
+    stage(' Lancer les tests') {
       parallel {
         stage('Frontend tests') {
           steps {
@@ -57,21 +57,28 @@ pipeline {
       }
     }
 
-    stage('🏗️ Build frontend') {
+    stage('Build frontend') {
       steps {
         dir('frontend') {
           bat 'npm run build'
         }
       }
     }
+
+    stage('Build backend') {
+      steps {
+        dir('backend') {
+          bat 'npm run build'
+    }
+  }
   }
 
   post {
     success {
-      echo '✅ Pipeline terminée avec succès !'
+      echo 'Pipeline terminée avec succès !'
     }
     failure {
-      echo '❌ Erreur pendant la pipeline.'
+      echo 'Erreur pendant la pipeline.'
     }
   }
 }
