@@ -12,9 +12,9 @@ pipeline {
 
   stages {
 
-    
+    /* === Étapes CI (Intégration Continue) === */
 
-    stage('dépendances Frontend') {
+    stage('Dépendances Frontend') {
       steps {
         dir('frontend') {
           bat 'npm ci'
@@ -22,7 +22,7 @@ pipeline {
       }
     }
 
-    stage('dépendances Backend') {
+    stage('Dépendances Backend') {
       steps {
         dir('backend') {
           bat 'npm ci'
@@ -54,10 +54,35 @@ pipeline {
       }
     }
 
-    
+    /* === Étapes CD (Déploiement Continu avec Docker) === */
 
+    stage('Build Docker Images') {
+      steps {
+        script {
+          echo "Construction des images Docker..."
+          bat 'docker build -t ecommerce-frontend ./frontend'
+          bat 'docker build -t ecommerce-backend ./backend'
+        }
+      }
+    }
 
+    stage('Déploiement des Conteneurs') {
+      steps {
+        script {
+          echo "Déploiement des conteneurs Docker..."
+          bat '''
+            docker stop ecommerce-frontend || exit 0
+            docker stop ecommerce-backend || exit 0
+            docker rm ecommerce-frontend || exit 0
+            docker rm ecommerce-backend || exit 0
+
+            docker run -d -p 5173:80 --name ecommerce-frontend ecommerce-frontend
+            docker run -d -p 4000:4000 --name ecommerce-backend ecommerce-backend
+          '''
+        }
+      }
+    }
   }
 
- 
+  
 }
