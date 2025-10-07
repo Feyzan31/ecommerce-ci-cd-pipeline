@@ -2,34 +2,43 @@ const express = require("express");
 const cors = require("cors");
 const { init } = require("./db");
 
-// Import des routeurs
 const productsRouter = require("./routes/products.routes");
 const ordersRouter = require("./routes/orders.routes");
 
 const app = express();
 
-// ✅ Autoriser toutes les méthodes et en-têtes
+// ✅ Autoriser toutes les origines (tu peux restreindre plus tard)
 app.use(cors({
-  origin: "http://localhost:5173", // ton frontend
+  origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type"],
 }));
 
 app.use(express.json());
-init();
 
-// Routes
+// ✅ Initialisation de la base SQLite
+try {
+  init();
+  console.log("📦 Base de données initialisée avec succès");
+} catch (err) {
+  console.error("❌ Erreur d'initialisation de la base :", err);
+  process.exit(1); // stoppe le conteneur proprement
+}
+
+// ✅ Routes principales
 app.use("/api/products", productsRouter);
 app.use("/api/orders", ordersRouter);
 
-// ✅ Route test
+// ✅ Routes de test / santé
 app.get("/", (req, res) => res.send("🚀 API e-commerce opérationnelle !"));
+app.get("/api/ping", (req, res) => res.json({ status: "ok" }));
 
-// ✅ Ne démarre le serveur que si on exécute ce fichier directement
+// ✅ Lancement du serveur uniquement si exécuté directement
 if (require.main === module) {
   const PORT = process.env.PORT || 4000;
-  app.listen(PORT, () => console.log(`✅ Serveur en écoute sur http://localhost:${PORT}`));
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`✅ Serveur en écoute sur http://localhost:${PORT}`);
+  });
 }
 
-// ✅ Exporter app pour les tests
 module.exports = app;

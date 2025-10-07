@@ -1,12 +1,12 @@
-# Utilise Node 22 basé sur Debian (plus complet pour compiler les modules natifs)
+# --- Backend Node + SQLite ---
 FROM node:22-slim
 
 WORKDIR /app
 
-# Copie des dépendances
+# Copie uniquement les fichiers nécessaires pour installer les dépendances
 COPY package*.json ./
 
-# Installe les dépendances système nécessaires à better-sqlite3
+# Installe les outils pour compiler better-sqlite3 puis les dépendances
 RUN apt-get update \
   && apt-get install -y python3 make g++ \
   && npm ci \
@@ -15,11 +15,17 @@ RUN apt-get update \
   && apt-get autoremove -y \
   && rm -rf /var/lib/apt/lists/*
 
-# Copie du code
+# Copie du code source
 COPY . .
 
+# Création du dossier data pour la base SQLite
+RUN mkdir -p /app/data
+
+# Variables d'environnement
 ENV NODE_ENV=production
 ENV PORT=4000
+
 EXPOSE 4000
 
+# Lancement de l'application
 CMD ["node", "src/index.js"]
