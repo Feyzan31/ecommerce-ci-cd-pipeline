@@ -2,7 +2,7 @@ pipeline {
   agent any
 
   tools {
-    nodejs 'node24'
+    nodejs 'node18'
   }
 
   options {
@@ -15,7 +15,6 @@ pipeline {
     stage('📦 Checkout code') {
       steps {
         echo "Récupération du code source..."
-        // ⚠️ remplace l’URL ci-dessous par ton dépôt GitHub
         git branch: 'main', url: 'https://github.com/souadbouzgaou/ecommerce-ci-cd-pipeline.git'
       }
     }
@@ -25,14 +24,14 @@ pipeline {
         stage('Frontend') {
           steps {
             dir('frontend') {
-              sh 'npm ci'
+              bat 'npm ci'
             }
           }
         }
         stage('Backend') {
           steps {
             dir('backend') {
-              sh 'npm ci'
+              bat 'npm ci'
             }
           }
         }
@@ -44,14 +43,14 @@ pipeline {
         stage('Frontend tests') {
           steps {
             dir('frontend') {
-              sh 'npm test || echo "⚠️ Tests échoués (frontend)"'
+              bat 'npm test || echo "⚠️ Tests échoués (frontend)"'
             }
           }
         }
         stage('Backend tests') {
           steps {
             dir('backend') {
-              sh 'npm test || echo "⚠️ Tests échoués (backend)"'
+              bat 'npm test || echo "⚠️ Tests échoués (backend)"'
             }
           }
         }
@@ -61,7 +60,7 @@ pipeline {
     stage('🏗️ Build frontend') {
       steps {
         dir('frontend') {
-          sh 'npm run build'
+          bat 'npm run build'
         }
       }
     }
