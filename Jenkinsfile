@@ -19,45 +19,39 @@ pipeline {
       }
     }
 
-    stage('Installation des dépendances') {
-      parallel {
-        stage('Frontend') {
-          steps {
-            dir('frontend') {
-              bat 'npm ci'
-            }
-          }
-        }
-        stage('Backend') {
-          steps {
-            dir('backend') {
-              bat 'npm ci'
-            }
-          }
+    stage('Installation dépendances Frontend') {
+      steps {
+        dir('frontend') {
+          bat 'npm ci'
         }
       }
     }
 
-    stage(' Lancer les tests') {
-      parallel {
-        stage('Frontend tests') {
-          steps {
-            dir('frontend') {
-              bat 'npm test || echo "Tests échoués (frontend)"'
-            }
-          }
-        }
-        stage('Backend tests') {
-          steps {
-            dir('backend') {
-              bat 'npm test || echo  "Tests échoués (backend)"'
-            }
-          }
+    stage('Installation dépendances Backend') {
+      steps {
+        dir('backend') {
+          bat 'npm ci'
         }
       }
     }
 
-    stage('Build frontend') {
+    stage('Tests Frontend') {
+      steps {
+        dir('frontend') {
+          bat 'npm test || echo "Tests échoués (frontend)"'
+        }
+      }
+    }
+
+    stage('Tests Backend') {
+      steps {
+        dir('backend') {
+          bat 'npm test || echo "Tests échoués (backend)"'
+        }
+      }
+    }
+
+    stage('Build Frontend') {
       steps {
         dir('frontend') {
           bat 'npm run build'
@@ -65,12 +59,13 @@ pipeline {
       }
     }
 
-    stage('Build backend') {
+    stage('Build Backend') {
       steps {
         dir('backend') {
           bat 'npm run build'
+        }
+      }
     }
-  }
   }
 
   post {
