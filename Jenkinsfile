@@ -43,6 +43,8 @@ pipeline {
     stage('Build Docker Images') {
       steps {
         script {
+          bat 'rd /s /q backend\\node_modules || exit /b 0'
+
           // Active BuildKit pour de meilleurs caches (facultatif)
           bat 'set DOCKER_BUILDKIT=1'
           bat 'docker build -t ecommerce-frontend ./frontend'
