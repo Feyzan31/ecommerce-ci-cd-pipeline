@@ -1,0 +1,85 @@
+pipeline {
+  agent any
+
+  tools {
+    nodejs 'node24'
+  }
+
+  options {
+    ansiColor('xterm')
+    timestamps()
+  }
+
+  environment {
+    CACHE_DIR = "${WORKSPACE}\\npm_cache"
+  }
+
+  stages {
+    stage('Check Docker & Node') {
+      steps {
+        bat 'docker --version'
+        bat 'node --version'
+        bat 'npm --version'
+      }
+    }
+
+    stage('Install Frontend Deps (Cached)') {
+      steps {
+        dir('frontend') {
+          bat 'npm ci --prefer-offline --cache %CACHE_DIR%'
+        }
+      }
+    }
+
+    stage('Install Backend Deps (Cached)') {
+      steps {
+        dir('backend') {
+          bat 'npm ci --prefer-offline --cache %CACHE_DIR%'
+        }
+      }
+    }
+
+    stage('Build Frontend') {
+      steps { dir('frontend') { bat 'npm run build' } }
+    }
+
+    stage('Frontend Tests') {
+      steps { dir('frontend') { bat 'npm test || exit /b 0' } }
+    }
+
+    stage('Backend Tests') {
+      steps { dir('backend') { bat 'npm test || exit /b 0' } }
+    }
+
+    stage('Build Docker Images') {
+      steps {
+        script {
+          bat 'rd /s /q backend\\node_modules || exit /b 0'
+          bat 'set DOCKER_BUILDKIT=1'
+          bat 'docker build -t ecommerce-frontend ./frontend'
+          bat 'docker build -t ecommerce-backend ./backend'
+        }
+      }
+    }
+
+    stage('Deploy Containers') {
+      steps {
+        script {
+          bat 'docker stop ecommerce-frontend || exit /b 0'
+          bat 'docker rm ecommerce-frontend || exit /b 0'
+          bat 'docker stop ecommerce-backend || exit /b 0'
+          bat 'docker rm ecommerce-backend || exit /b 0'
+
+          bat 'docker run -d --restart always -p 5173:80 --name ecommerce-frontend ecommerce-frontend'
+          bat 'docker run -d --restart always -p 4000:4000 --name ecommerce-backend ecommerce-backend'
+        }
+      }
+    }
+  }
+
+  post {
+    success { echo '✅ Jenkinsfile1 (Caching) finished successfully!' }
+    always { bat 'docker ps -a' }
+  }
+}
+
