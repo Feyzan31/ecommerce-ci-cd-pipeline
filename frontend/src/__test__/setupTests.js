@@ -3,7 +3,7 @@ import "@testing-library/jest-dom";
 
 beforeAll(() => {
   global.fetch = vi.fn(async (url, options = {}) => {
-    // 🔹 Cas App.jsx (utilise res.json())
+    // Cas App.jsx (utilise res.json())
     if (url.includes("http://localhost:4000/api/products") && !options.method) {
       return {
         ok: true,
@@ -28,7 +28,7 @@ beforeAll(() => {
       };
     }
 
-    // 🔹 Cas Admin.jsx (utilise res.text())
+    // Cas Admin.jsx (utilise res.text())
     if (url.endsWith("/api/products") && !url.startsWith("http")) {
       return {
         ok: true,

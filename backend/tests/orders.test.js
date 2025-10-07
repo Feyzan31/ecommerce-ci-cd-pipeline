@@ -2,14 +2,14 @@ const request = require('supertest');
 const app = require('../src/index');
 const { db } = require('../src/db');
 
-describe('📦 API /api/orders', () => {
+describe('API /api/orders', () => {
 
-  // 🧹 Nettoyer la table avant chaque test
+  //Nettoyer la table avant chaque test
   beforeEach(() => {
     db.prepare('DELETE FROM orders').run();
   });
 
-  // ✅ Test création valide
+  // Test création valide
   it('crée une commande avec succès', async () => {
     const orderData = {
       customer: { name: 'Souad Test', email: 'souad@example.com' },
@@ -26,14 +26,14 @@ describe('📦 API /api/orders', () => {
     expect(res.body).toHaveProperty('id');
   });
 
-  // ⚠️ Test création sans client
+  //Test création sans client
   it('retourne une erreur si les champs sont manquants', async () => {
     const invalid = { items: [], total: 10 };
     const res = await request(app).post('/api/orders').send(invalid);
     expect([400, 500]).toContain(res.statusCode);
   });
 
-  // ⚠️ Test création avec total invalide
+  // Test création avec total invalide
   it('refuse une commande avec total négatif', async () => {
     const badOrder = {
       customer: { name: 'Bad', email: 'bad@example.com' },
@@ -44,7 +44,7 @@ describe('📦 API /api/orders', () => {
     expect([400, 500]).toContain(res.statusCode);
   });
 
-  // ✅ Test récupération des commandes
+  // Test récupération des commandes
   it('retourne la liste des commandes', async () => {
     // Insertion directe
     db.prepare(
