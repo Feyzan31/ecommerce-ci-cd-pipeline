@@ -70,9 +70,8 @@ pipeline {
         }
       }
     }
-  }
 
-  stage('Analyse SonarQube') {
+     stage('Analyse SonarQube') {
   steps {
     withSonarQubeEnv('SonarQube') {
       dir('frontend') {
@@ -96,5 +95,9 @@ pipeline {
     }
   }
 }
+
+  }
+
+ 
 
 }
