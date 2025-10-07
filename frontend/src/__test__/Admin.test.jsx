@@ -35,7 +35,7 @@ describe("Admin dashboard", () => {
 
   test("supprime un produit", async () => {
     render(<Admin />);
-    const deleteBtn = await screen.findByRole("button", { name: i });
+    const deleteBtn = await screen.findByRole("button", { name: /🗑️/i });
     await userEvent.click(deleteBtn);
 
     await waitFor(() => {
