@@ -1,28 +1,25 @@
-# Utilise Node 22 (compatible Vite et moderne)
-FROM node:22-alpine
+# Utilise Node 22 basé sur Debian (plus complet pour compiler les modules natifs)
+FROM node:22-slim
 
-# Dossier de travail
 WORKDIR /app
 
-# Copie des fichiers de dépendances
+# Copie des dépendances
 COPY package*.json ./
 
-# Installe les outils de build nécessaires pour compiler better-sqlite3
-# (python3, make, g++) puis installe les dépendances et recompile le module nativement
-RUN apk add --no-cache python3 make g++ \
+# Installe les dépendances système nécessaires à better-sqlite3
+RUN apt-get update \
+  && apt-get install -y python3 make g++ \
   && npm ci \
   && npm rebuild better-sqlite3 --build-from-source \
-  && apk del python3 make g++
+  && apt-get remove -y python3 make g++ \
+  && apt-get autoremove -y \
+  && rm -rf /var/lib/apt/lists/*
 
-# Copie du reste du code de l'application
+# Copie du code
 COPY . .
 
-# Variables d'environnement
 ENV NODE_ENV=production
 ENV PORT=4000
-
-# Exposition du port
 EXPOSE 4000
 
-# Commande de démarrage
 CMD ["node", "src/index.js"]
