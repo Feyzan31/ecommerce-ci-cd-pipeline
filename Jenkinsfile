@@ -33,7 +33,7 @@ pipeline {
       }
     }
 
-    stage('Tests') {
+    
       // Les tests sont maintenant séquentiels (l'un après l'autre)
       stage('Frontend Tests') { 
         steps { 
@@ -45,7 +45,7 @@ pipeline {
           dir('backend') { bat 'npm test || echo "⚠️ Tests échoués (backend)"' } 
         } 
       }
-    }
+    
 
     /* === Étapes CD (Déploiement Continu avec Docker) === */
 
