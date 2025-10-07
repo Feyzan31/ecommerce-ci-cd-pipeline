@@ -1,20 +1,28 @@
-FROM node:18
+# Utilise Node 22 (compatible Vite et moderne)
+FROM node:22-alpine
+
+# Dossier de travail
 WORKDIR /app
+
+# Copie des fichiers de dépendances
 COPY package*.json ./
-RUN npm ci
 
-# Si votre application a besoin d'un fichier SQLite pour démarrer sans planter, 
-# vous pouvez créer un fichier vide de placeholder ici.
-# Si SQLite crée le fichier s'il n'existe pas, cette étape est optionnelle.
-# RUN touch database.sqlite 
+# Installe les outils de build nécessaires pour compiler better-sqlite3
+# (python3, make, g++) puis installe les dépendances et recompile le module nativement
+RUN apk add --no-cache python3 make g++ \
+  && npm ci \
+  && npm rebuild better-sqlite3 --build-from-source \
+  && apk del python3 make g++
 
+# Copie du reste du code de l'application
 COPY . .
+
+# Variables d'environnement
+ENV NODE_ENV=production
+ENV PORT=4000
+
+# Exposition du port
 EXPOSE 4000
 
-# CMD recommandé pour Node.js en production :
-# Utilise la forme exec pour lancer Node directement. 
-# Remplacez 'index.js' si votre script de démarrage est différent.
-# Si votre 'package.json' start est "node index.js", vous pouvez l'utiliser directement.
-# Si votre 'package.json' start est "npm run start", utilisez la ligne ci-dessous :
-CMD ["npm", "run", "start"]
-# Alternative (préférée) : CMD ["node", "index.js"]
+# Commande de démarrage
+CMD ["node", "src/index.js"]

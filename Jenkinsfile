@@ -2,81 +2,80 @@ pipeline {
   agent any
 
   tools {
-    // Assurez-vous que 'node24' est bien configuré dans Jenkins
-    nodejs 'node24' 
+    // Assurez-vous que 'node24' est configuré dans Manage Jenkins > Global Tool Configuration
+    nodejs 'node24'
   }
 
   options {
-    timestamps()
     ansiColor('xterm')
+    timestamps()
   }
 
   stages {
-
-    /* === Étapes CI (Intégration Continue) === */
-
-    stage('Dépendances Frontend') {
+    stage('Check Docker & Node') {
       steps {
-        dir('frontend') { bat 'npm ci' }
+        bat 'docker --version'
+        bat 'node --version'
+        bat 'npm --version'
       }
     }
 
-    stage('Dépendances Backend') {
-      steps {
-        dir('backend') { bat 'npm ci' }
-      }
+    stage('Install Frontend Deps') {
+      steps { dir('frontend') { bat 'npm ci' } }
+    }
+
+    stage('Install Backend Deps') {
+      steps { dir('backend') { bat 'npm ci' } }
     }
 
     stage('Build Frontend') {
-      steps {
-        dir('frontend') { bat 'npm run build' }
-      }
+      steps { dir('frontend') { bat 'npm run build' } }
     }
 
-    
-      // Les tests sont maintenant séquentiels (l'un après l'autre)
-      stage('Frontend Tests') { 
-        steps { 
-          dir('frontend') { bat 'npm test || echo "⚠️ Tests échoués (frontend)"' } 
-        } 
-      }
-      stage('Backend Tests') { 
-        steps { 
-          dir('backend') { bat 'npm test || echo "⚠️ Tests échoués (backend)"' } 
-        } 
-      }
-    
+    stage('Frontend Tests') {
+      steps { dir('frontend') { bat 'npm test || exit /b 0' } } // ne casse pas le pipeline si les tests échouent
+    }
 
-    /* === Étapes CD (Déploiement Continu avec Docker) === */
+    stage('Backend Tests') {
+      steps { dir('backend') { bat 'npm test || exit /b 0' } } // idem
+    }
 
     stage('Build Docker Images') {
       steps {
         script {
-          echo "🐳 Construction des images Docker..."
+          // Active BuildKit pour de meilleurs caches (facultatif)
+          bat 'set DOCKER_BUILDKIT=1'
           bat 'docker build -t ecommerce-frontend ./frontend'
           bat 'docker build -t ecommerce-backend ./backend'
         }
       }
     }
 
-    stage('Déploiement des Conteneurs') {
-  steps {
-    script {
-      echo "Déploiement des conteneurs Docker..."
+    stage('Deploy Containers') {
+      steps {
+        script {
+          echo '🧹 Stop & remove anciens conteneurs (ignore erreurs)'
+          bat 'docker stop ecommerce-frontend || exit /b 0'
+          bat 'docker rm ecommerce-frontend || exit /b 0'
+          bat 'docker stop ecommerce-backend || exit /b 0'
+          bat 'docker rm ecommerce-backend || exit /b 0'
 
-      //  Stop & remove anciens conteneurs sans échec si inexistants
-      bat 'docker stop ecommerce-frontend || exit 0'
-      bat 'docker rm ecommerce-frontend || exit 0'
-      bat 'docker stop ecommerce-backend || exit 0'
-      bat 'docker rm ecommerce-backend || exit 0'
+          echo ' Lancement des nouveaux conteneurs'
+          // Frontend: Nginx sert sur 80 dans le conteneur → on mappe 5173:80 côté hôte
+          bat 'docker run -d --restart always -p 5173:80 --name ecommerce-frontend ecommerce-frontend'
+          // Backend: écoute sur 4000 dans le conteneur → on mappe 4000:4000
+          bat 'docker run -d --restart always -p 4000:4000 --name ecommerce-backend ecommerce-backend'
+        }
+      }
+    }
+  }
 
-      // Lancement des nouveaux conteneurs
-      echo "Lancement des nouveaux conteneurs..."
-      bat 'docker run -d -p 5173:80 --name ecommerce-frontend ecommerce-frontend'
-      bat 'docker run -d -p 4000:4000 --name ecommerce-backend ecommerce-backend'
+  post {
+    success { echo 'Pipeline CI/CD terminée avec succès !' }
+    failure { echo 'Erreur pendant le pipeline.' }
+    always {
+      echo 'Fin du pipeline.'
+      bat 'docker ps -a'
     }
   }
 }
-
-  }
-  }
