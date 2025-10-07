@@ -6,8 +6,7 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "test": "jest" ,
-    "build": "echo 'Backend prêt à être déployé'"
+    "test": "jest"  
   },
   "keywords": [],
   "author": "",
