@@ -60,29 +60,23 @@ pipeline {
     }
 
     stage('Déploiement des Conteneurs') {
-      steps {
-        script {
-          echo "Déploiement des conteneurs Docker..."
-          
-          // NETTOYAGE (Stop & Remove) en Batch
-          echo "Tentative d'arrêt et de suppression des anciens conteneurs..."
-          // Laisser ces commandes échouer si le conteneur n'existe pas est acceptable en Batch
-          bat 'docker stop ecommerce-frontend'
-          bat 'docker rm ecommerce-frontend'
-          bat 'docker stop ecommerce-backend'
-          bat 'docker rm ecommerce-backend'
+  steps {
+    script {
+      echo "Déploiement des conteneurs Docker..."
 
-          // LANCEMENT
-          echo "Lancement des nouveaux conteneurs..."
-          bat 'docker run -d -p 5173:80 --name ecommerce-frontend ecommerce-frontend'
-          bat 'docker run -d -p 4000:4000 --name ecommerce-backend ecommerce-backend'
-        }
-      }
+      //  Stop & remove anciens conteneurs sans échec si inexistants
+      bat 'docker stop ecommerce-frontend || exit 0'
+      bat 'docker rm ecommerce-frontend || exit 0'
+      bat 'docker stop ecommerce-backend || exit 0'
+      bat 'docker rm ecommerce-backend || exit 0'
+
+      // Lancement des nouveaux conteneurs
+      echo "Lancement des nouveaux conteneurs..."
+      bat 'docker run -d -p 5173:80 --name ecommerce-frontend ecommerce-frontend'
+      bat 'docker run -d -p 4000:4000 --name ecommerce-backend ecommerce-backend'
     }
   }
-
-  post {
-    success { echo '✅ Pipeline CI/CD terminée avec succès !' }
-    failure { echo '❌ Erreur pendant le déploiement.' }
-  }
 }
+
+  }
+  }
