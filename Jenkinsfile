@@ -71,30 +71,33 @@ pipeline {
       }
     }
 
-     stage('Analyse SonarQube') {
+    stage('Analyse SonarQube') {
   steps {
     withSonarQubeEnv('SonarQube') {
-      dir('frontend') {
-        bat '''
-          npx sonar-scanner ^
-          -Dsonar.projectKey=frontend ^
-          -Dsonar.sources=src ^
-          -Dsonar.host.url=http://localhost:9000 ^
-          -Dsonar.login=%SONAR_AUTH_TOKEN%
-        '''
-      }
-      dir('backend') {
-        bat '''
-          npx sonar-scanner ^
-          -Dsonar.projectKey=backend ^
-          -Dsonar.sources=src ^
-          -Dsonar.host.url=http://localhost:9000 ^
-          -Dsonar.login=%SONAR_AUTH_TOKEN%
-        '''
+      withCredentials([string(credentialsId: 'SONAR_AUTH_TOKEN', variable: 'TOKEN')]) {
+        dir('frontend') {
+          bat """
+            npx sonar-scanner ^
+            -Dsonar.projectKey=frontend ^
+            -Dsonar.sources=src ^
+            -Dsonar.host.url=http://localhost:9000 ^
+            -Dsonar.login=%TOKEN%
+          """
+        }
+        dir('backend') {
+          bat """
+            npx sonar-scanner ^
+            -Dsonar.projectKey=backend ^
+            -Dsonar.sources=src ^
+            -Dsonar.host.url=http://localhost:9000 ^
+            -Dsonar.login=%TOKEN%
+          """
+        }
       }
     }
   }
 }
+
 
   }
 
