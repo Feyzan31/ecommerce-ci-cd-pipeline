@@ -12,7 +12,7 @@ pipeline {
   }
 
   environment {
-    // 📦 Dossier cache partagé entre les builds Jenkins
+    // 📦 Dossier cache partagé entre builds
     NPM_CACHE = "C:\\ProgramData\\Jenkins\\.jenkins\\npm_cache"
   }
 
@@ -23,14 +23,14 @@ pipeline {
       steps {
         checkout([
           $class: 'GitSCM',
-          branches: [[name: '*/main']], // adapte selon ta branche
+          branches: [[name: '*/main']],
           extensions: [[$class: 'CloneOption', depth: 0, noTags: false, shallow: false]],
           userRemoteConfigs: [[url: 'https://github.com/Feyzan31/ecommerce-ci-cd-pipeline.git']]
         ])
       }
     }
 
-    // === 2️⃣ VÉRIFICATION ENVIRONNEMENT ===
+    // === 2️⃣ ENVIRONNEMENT ===
     stage('Check Docker & Node') {
       steps {
         bat 'docker --version'
@@ -78,59 +78,68 @@ pipeline {
       }
     }
 
-    // === 5️⃣ TESTS FRONTEND (INCREMENTAUX) ===
-    stage('Frontend Tests (Incremental)') {
-      steps {
-        script {
-          def changes = bat(script: 'git diff --name-only HEAD~1 HEAD', returnStdout: true).trim().replace("\r", "")
-          echo "📂 Fichiers modifiés : ${changes}"
+    // === 5️⃣ TESTS PARALLÈLES AVEC INCREMENTALITE ===
+    stage('Run Tests (Parallel + Incremental)') {
+      parallel {
 
-          if (changes.contains("fatal:")) {
-            echo "⚠️ Premier build — exécution complète des tests FRONTEND."
-            changes = "frontend/"
-          }
+        // FRONTEND TESTS
+        stage('Frontend Tests') {
+          steps {
+            script {
+              def changes = bat(script: 'git diff --name-only HEAD~1 HEAD', returnStdout: true).trim().replace("\r", "")
+              echo "📂 Fichiers modifiés : ${changes}"
 
-          if (changes.contains("frontend/")) {
-            dir('frontend') {
-              echo "🧪 Tests FRONTEND..."
-              bat 'npx vitest run --coverage || exit /b 0'
+              if (changes.contains("fatal:")) {
+                echo "⚠️ Premier build — exécution complète des tests FRONTEND."
+                changes = "frontend/"
+              }
+
+              if (changes.contains("frontend/")) {
+                dir('frontend') {
+                  echo "🧪 Tests FRONTEND..."
+                  bat 'npx vitest run --coverage || exit /b 0'
+                }
+              } else {
+                echo "✅ Aucun changement frontend — skip tests frontend."
+              }
             }
-          } else {
-            echo "✅ Aucun changement dans frontend — skip tests frontend."
+          }
+        }
+
+        // BACKEND TESTS
+        stage('Backend Tests') {
+          steps {
+            script {
+              def changes = bat(script: 'git diff --name-only HEAD~1 HEAD', returnStdout: true).trim().replace("\r", "")
+              echo "📂 Fichiers modifiés : ${changes}"
+
+              if (changes.contains("fatal:")) {
+                echo "⚠️ Premier build — exécution complète des tests BACKEND."
+                changes = "backend/"
+              }
+
+              if (changes.contains("backend/")) {
+                dir('backend') {
+                  echo "🧪 Tests BACKEND..."
+                  bat """
+                    set PATH=%cd%\\node_modules\\.bin;%PATH%
+                    npm run test:cov || exit /b 0
+                  """
+                }
+              } else {
+                echo "✅ Aucun changement backend — skip tests backend."
+              }
+            }
           }
         }
       }
     }
 
-    // === 6️⃣ TESTS BACKEND (INCREMENTAUX) ===
-    stage('Backend Tests (Incremental)') {
-      steps {
-        script {
-          def changes = bat(script: 'git diff --name-only HEAD~1 HEAD', returnStdout: true).trim().replace("\r", "")
-          echo "📂 Fichiers modifiés : ${changes}"
-
-          if (changes.contains("fatal:")) {
-            echo "⚠️ Premier build — exécution complète des tests BACKEND."
-            changes = "backend/"
-          }
-
-          if (changes.contains("backend/")) {
-            dir('backend') {
-              echo "🧪 Tests BACKEND..."
-              bat 'npm run test:cov || exit /b 0'
-            }
-          } else {
-            echo "✅ Aucun changement dans backend — skip tests backend."
-          }
-        }
-      }
-    }
-
-    // === 7️⃣ BUILD DOCKER (CLASSIQUE) ===
+    // === 6️⃣ BUILD DOCKER CLASSIQUE ===
     stage('Build Docker Images') {
       steps {
         script {
-          echo '🐳 Construction classique des images Docker...'
+          echo '🐳 Construction des images Docker...'
           bat 'rd /s /q backend\\node_modules || exit /b 0'
           bat 'docker build -t ecommerce-frontend ./frontend'
           bat 'docker build -t ecommerce-backend ./backend'
@@ -138,11 +147,11 @@ pipeline {
       }
     }
 
-    // === 8️⃣ DEPLOIEMENT ===
+    // === 7️⃣ DEPLOIEMENT ===
     stage('Deploy Containers') {
       steps {
         script {
-          echo '🧹 Suppression des anciens conteneurs...'
+          echo '🧹 Nettoyage anciens conteneurs...'
           bat 'docker stop ecommerce-frontend || exit /b 0'
           bat 'docker rm ecommerce-frontend || exit /b 0'
           bat 'docker stop ecommerce-backend || exit /b 0'
@@ -155,7 +164,7 @@ pipeline {
       }
     }
 
-    // === 9️⃣ ANALYSE SONARQUBE PARALLÈLE ===
+    // === 8️⃣ SONARQUBE EN PARALLÈLE ===
     stage('SonarQube Analysis (Parallel)') {
       parallel {
         stage('Frontend SonarQube') {
@@ -186,9 +195,9 @@ pipeline {
             withSonarQubeEnv('SonarQube') {
               withCredentials([string(credentialsId: 'SONAR_AUTH_TOKEN', variable: 'TOKEN')]) {
                 dir('backend') {
-                  bat 'set PATH=%cd%\\node_modules\\.bin;%PATH%'
-                  bat 'npm run test:cov'
                   bat """
+                    set PATH=%cd%\\node_modules\\.bin;%PATH%
+                    npm run test:cov
                     npx sonar-scanner ^
                     -Dsonar.projectKey=backend ^
                     -Dsonar.sources=src ^
