@@ -92,7 +92,9 @@ pipeline {
   """
 }
             dir('backend') {
-  bat 'npx jest --coverage'   // <-- lance Jest avec couverture
+  bat 'set PATH=%cd%\\node_modules\\.bin;%PATH%'
+  bat 'npm ci'
+  bat 'npm run test:cov'   // <-- lance Jest avec couverture
   bat """
      npx sonar-scanner ^
     -Dsonar.projectKey=backend ^
