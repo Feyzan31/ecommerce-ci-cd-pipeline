@@ -1,6 +1,9 @@
 pipeline {
   agent any
 
+
+  // Assurez-vous que 'node24' est configuré dans Manage Jenkins > Global Tool Configuration
+
   tools {
     nodejs 'node24'
   }
@@ -11,7 +14,6 @@ pipeline {
   }
 
   stages {
-
     stage('Check Docker & Node') {
       steps {
         bat 'docker --version'
@@ -40,33 +42,15 @@ pipeline {
       steps { dir('backend') { bat 'npm test || exit /b 0' } } // idem
     }
 
-    stage('Build Docker Images (With Cache)') {
+    stage('Build Docker Images') {
       steps {
         script {
-          echo '🐳 Activation du cache Docker layers + BuildKit'
-
-          // Active BuildKit (moteur de build optimisé)
-          bat 'set DOCKER_BUILDKIT=1'
-
-          // Important : suppression du node_modules pour éviter de casser le cache
           bat 'rd /s /q backend\\node_modules || exit /b 0'
-          bat 'rd /s /q frontend\\node_modules || exit /b 0'
 
-          echo '📦 Build frontend avec cache'
-          bat '''
-            docker build ^
-              --cache-from ecommerce-frontend ^
-              -t ecommerce-frontend ^
-              ./frontend
-          '''
-
-          echo '📦 Build backend avec cache'
-          bat '''
-            docker build ^
-              --cache-from ecommerce-backend ^
-              -t ecommerce-backend ^
-              ./backend
-          '''
+          // Active BuildKit pour de meilleurs caches (facultatif)
+          bat 'set DOCKER_BUILDKIT=1'
+          bat 'docker build -t ecommerce-frontend ./frontend'
+          bat 'docker build -t ecommerce-backend ./backend'
         }
       }
     }
@@ -80,8 +64,10 @@ pipeline {
           bat 'docker stop ecommerce-backend || exit /b 0'
           bat 'docker rm ecommerce-backend || exit /b 0'
 
-          echo '🚀 Lancement des nouveaux conteneurs'
+          echo ' Lancement des nouveaux conteneurs'
+          // Frontend: Nginx sert sur 80 dans le conteneur → on mappe 5173:80 côté hôte
           bat 'docker run -d --restart always -p 5173:80 --name ecommerce-frontend ecommerce-frontend'
+          // Backend: écoute sur 4000 dans le conteneur → on mappe 4000:4000
           bat 'docker run -d --restart always -p 4000:4000 --name ecommerce-backend ecommerce-backend'
         }
       }
@@ -92,39 +78,39 @@ pipeline {
         withSonarQubeEnv('SonarQube') {
           withCredentials([string(credentialsId: 'SONAR_AUTH_TOKEN', variable: 'TOKEN')]) {
             dir('frontend') {
-              bat """
-                npx sonar-scanner ^
-                -Dsonar.projectKey=frontend ^
-                -Dsonar.sources=src ^
-                -Dsonar.host.url=http://localhost:9000 ^
-                -Dsonar.login=%TOKEN%
-              """
-            }
+  bat 'npm run test:cov'
+  bat """
+    npx sonar-scanner ^
+    -Dsonar.projectKey=frontend ^
+    -Dsonar.sources=src ^
+    -Dsonar.tests=src ^
+    -Dsonar.test.inclusions=**/*.test.js ^
+    -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info ^
+    -Dsonar.exclusions=**/node_modules/**,**/dist/** ^
+    -Dsonar.host.url=http://localhost:9000 ^
+    -Dsonar.login=%TOKEN%
+  """
+}
             dir('backend') {
-              bat """
-                npx sonar-scanner ^
-                -Dsonar.projectKey=backend ^
-                -Dsonar.sources=src ^
-                -Dsonar.host.url=http://localhost:9000 ^
-                -Dsonar.login=%TOKEN%
-              """
-            }
+  bat 'npm run test:cov'   // <-- lance Jest avec couverture
+  bat """
+    npx sonar-scanner ^
+    -Dsonar.projectKey=backend ^
+    -Dsonar.sources=src ^
+    -Dsonar.tests=tests ^
+    -Dsonar.test.inclusions=**/*.test.js ^
+    -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info ^
+    -Dsonar.exclusions=**/node_modules/** ^
+    -Dsonar.host.url=http://localhost:9000 ^
+    -Dsonar.login=%TOKEN%
+  """
+}
+
           }
         }
       }
     }
   }
 
-  post {
-    success {
-      echo '✅ Pipeline avec Docker Layer Cache terminée avec succès !'
-    }
-    failure {
-      echo '❌ Erreur pendant la pipeline.'
-    }
-    always {
-      echo '🧾 Fin du pipeline.'
-      bat 'docker images --format "table {{.Repository}}\t{{.CreatedSince}}\t{{.Size}}"'
-    }
-  }
+  
 }
