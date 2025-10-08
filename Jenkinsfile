@@ -78,7 +78,7 @@ pipeline {
         withSonarQubeEnv('SonarQube') {
           withCredentials([string(credentialsId: 'SONAR_AUTH_TOKEN', variable: 'TOKEN')]) {
             dir('frontend') {
-  bat 'npm run test:cov'
+  bat 'npx vitest run --coverage'
   bat """
     npx sonar-scanner ^
     -Dsonar.projectKey=frontend ^
@@ -92,9 +92,9 @@ pipeline {
   """
 }
             dir('backend') {
-  bat 'npm run test:cov'   // <-- lance Jest avec couverture
+  bat 'npx jest --coverage'   // <-- lance Jest avec couverture
   bat """
-    npx sonar-scanner ^
+     npx sonar-scanner ^
     -Dsonar.projectKey=backend ^
     -Dsonar.sources=src ^
     -Dsonar.tests=tests ^
