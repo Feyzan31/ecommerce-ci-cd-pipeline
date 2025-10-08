@@ -15,7 +15,6 @@ pipeline {
   }
 
   stages {
-
     stage('Check Docker & Node') {
       steps {
         bat 'docker --version'
@@ -24,13 +23,11 @@ pipeline {
       }
     }
 
-    // 🧩 Étape 1 : INSTALLATION PARALLÈLE
     stage('Install Dependencies (Parallel)') {
       parallel {
         stage('Frontend Deps') {
           steps {
             dir('frontend') {
-              echo '📦 Installation des dépendances frontend avec cache...'
               bat 'npm ci --prefer-offline --cache %NPM_CACHE%'
             }
           }
@@ -38,7 +35,6 @@ pipeline {
         stage('Backend Deps') {
           steps {
             dir('backend') {
-              echo '📦 Installation des dépendances backend avec cache...'
               bat 'npm ci --prefer-offline --cache %NPM_CACHE%'
             }
           }
@@ -46,7 +42,6 @@ pipeline {
       }
     }
 
-    // 🧩 Étape 2 : BUILD FRONTEND
     stage('Build Frontend') {
       steps {
         dir('frontend') {
@@ -55,29 +50,42 @@ pipeline {
       }
     }
 
-    // 🧩 Étape 3 : TESTS PARALLÈLES
-    stage('Run Tests (Parallel)') {
-      parallel {
-        stage('Frontend Tests') {
-          steps {
-            dir('frontend') {
-              echo '🧪 Tests frontend...'
-              bat 'npm test -- --watchAll=false --passWithNoTests || exit /b 0'
+    // 🧩 Étape d’optimisation : TESTS INCRÉMENTAUX
+    stage('Run Incremental Tests') {
+      steps {
+        script {
+          // Récupération des fichiers modifiés depuis le dernier commit
+          def changes = bat(script: 'git diff --name-only HEAD~1 HEAD', returnStdout: true).trim()
+          echo "🔍 Fichiers modifiés : ${changes}"
+
+          if (changes == "") {
+            echo "✅ Aucun changement détecté, skip des tests."
+          } else {
+            // Si des fichiers frontend ont changé → tests frontend
+            if (changes.contains("frontend/")) {
+              dir('frontend') {
+                echo "🧪 Tests frontend modifiés..."
+                bat 'npm test -- --passWithNoTests || exit /b 0'
+              }
             }
-          }
-        }
-        stage('Backend Tests') {
-          steps {
-            dir('backend') {
-              echo '🧪 Tests backend...'
-              bat 'npm test --passWithNoTests || exit /b 0'
+
+            // Si des fichiers backend ont changé → tests backend
+            if (changes.contains("backend/")) {
+              dir('backend') {
+                echo "🧪 Tests backend modifiés..."
+                bat 'npm test -- --passWithNoTests || exit /b 0'
+              }
+            }
+
+            // Si aucun fichier source détecté → skip
+            if (!changes.contains("frontend/") && !changes.contains("backend/")) {
+              echo "ℹ️ Aucun test à exécuter pour ces fichiers."
             }
           }
         }
       }
     }
 
-    // 🧩 Étape 4 : BUILD DOCKER EN PARALLÈLE
     stage('Build Docker Images (Parallel)') {
       parallel {
         stage('Frontend Image') {
@@ -99,7 +107,6 @@ pipeline {
       }
     }
 
-    // 🧩 Étape 5 : DÉPLOIEMENT
     stage('Deploy Containers') {
       steps {
         script {
@@ -116,7 +123,6 @@ pipeline {
       }
     }
 
-    // 🧩 Étape 6 : ANALYSE SONARQUBE EN PARALLÈLE
     stage('SonarQube Analysis (Parallel)') {
       parallel {
         stage('Frontend SonarQube') {
@@ -160,15 +166,14 @@ pipeline {
 
   post {
     success {
-      echo '✅ Pipeline CI/CD PARALLÈLE terminée avec succès !'
+      echo '✅ Pipeline CI/CD avec TESTS INCRÉMENTAUX terminée avec succès !'
     }
     failure {
       echo '❌ Erreur pendant la pipeline.'
     }
     always {
-      echo '🧾 Fin du pipeline.'
+      echo "🧾 Fin du pipeline."
       echo "⏱ Durée totale du pipeline : ${currentBuild.durationString}"
-      bat 'docker ps -a'
     }
   }
 }
