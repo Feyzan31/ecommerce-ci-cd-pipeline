@@ -17,6 +17,7 @@ pipeline {
 
   stages {
 
+    // === 1️⃣ CLONAGE ===
     stage('Checkout') {
       steps {
         checkout([
@@ -28,6 +29,7 @@ pipeline {
       }
     }
 
+    // === 2️⃣ ENVIRONNEMENT ===
     stage('Check Docker & Node') {
       steps {
         bat 'docker --version'
@@ -36,6 +38,7 @@ pipeline {
       }
     }
 
+    // === 3️⃣ INSTALLATION PARALLÈLE AVEC CACHE ===
     stage('Install Dependencies (Parallel + Cached)') {
       parallel {
         stage('Frontend Deps') {
@@ -64,6 +67,7 @@ pipeline {
       }
     }
 
+    // === 4️⃣ BUILD FRONTEND ===
     stage('Build Frontend') {
       steps {
         dir('frontend') {
@@ -73,9 +77,10 @@ pipeline {
       }
     }
 
-    // === TESTS PARALLÈLES AVEC LOGIQUE INCRÉMENTALE ===
+    // === 5️⃣ TESTS PARALLÈLES + INCRÉMENTAUX ===
     stage('Run Tests (Parallel + Incremental)') {
       parallel {
+        // FRONTEND TESTS
         stage('Frontend Tests') {
           steps {
             script {
@@ -89,17 +94,26 @@ pipeline {
 
               dir('frontend') {
                 if (changes.contains("frontend/")) {
-                  echo "🧪 Running frontend tests..."
+                  echo "🧪 Running frontend tests (with coverage update)..."
                   bat 'npx vitest run --coverage || exit /b 0'
                 } else {
-                  echo "✅ No frontend changes — skipping tests, creating empty coverage."
-                  bat 'mkdir coverage && echo SF:dummy.js>coverage\\lcov.info'
+                  echo "✅ No frontend changes — reusing previous coverage."
+                  // Vérifie si un coverage existe déjà, sinon avertit
+                  bat """
+                    if not exist coverage\\lcov.info (
+                      echo ⚠️ WARNING: No existing coverage found. Running minimal tests...
+                      npx vitest run --coverage || exit /b 0
+                    ) else (
+                      echo 📁 Existing coverage retained: coverage\\lcov.info
+                    )
+                  """
                 }
               }
             }
           }
         }
 
+        // BACKEND TESTS
         stage('Backend Tests') {
           steps {
             script {
@@ -113,14 +127,22 @@ pipeline {
 
               dir('backend') {
                 if (changes.contains("backend/")) {
-                  echo "🧪 Running backend tests..."
+                  echo "🧪 Running backend tests (with coverage update)..."
                   bat """
                     set PATH=%cd%\\node_modules\\.bin;%PATH%
                     npx jest --coverage || exit /b 0
                   """
                 } else {
-                  echo "✅ No backend changes — skipping tests, creating empty coverage."
-                  bat 'mkdir coverage && echo SF:dummy.js>coverage\\lcov.info'
+                  echo "✅ No backend changes — reusing previous coverage."
+                  bat """
+                    if not exist coverage\\lcov.info (
+                      echo ⚠️ WARNING: No existing coverage found. Running minimal tests...
+                      set PATH=%cd%\\node_modules\\.bin;%PATH%
+                      npx jest --coverage || exit /b 0
+                    ) else (
+                      echo 📁 Existing coverage retained: coverage\\lcov.info
+                    )
+                  """
                 }
               }
             }
@@ -129,7 +151,7 @@ pipeline {
       }
     }
 
-    // === BUILD DOCKER CLASSIQUE ===
+    // === 6️⃣ BUILD DOCKER ===
     stage('Build Docker Images') {
       steps {
         script {
@@ -141,7 +163,7 @@ pipeline {
       }
     }
 
-    // === DEPLOIEMENT ===
+    // === 7️⃣ DEPLOIEMENT ===
     stage('Deploy Containers') {
       steps {
         script {
@@ -158,7 +180,7 @@ pipeline {
       }
     }
 
-    // === SONARQUBE PARALLÈLE ===
+    // === 8️⃣ SONARQUBE PARALLÈLE ===
     stage('SonarQube Analysis (Parallel)') {
       parallel {
         stage('Frontend SonarQube') {
