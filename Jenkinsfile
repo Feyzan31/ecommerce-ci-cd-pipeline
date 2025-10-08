@@ -16,7 +16,19 @@ pipeline {
 
   stages {
 
-    // --- Vérifications de base ---
+    stage('Checkout') {
+      steps {
+        // 🔁 Clone complet pour permettre git diff
+        checkout([
+          $class: 'GitSCM',
+          branches: [[name: '*/main']],
+          doGenerateSubmoduleConfigurations: false,
+          extensions: [[$class: 'CloneOption', depth: 0, noTags: false, shallow: false]],
+          userRemoteConfigs: [[url: 'https://github.com/Feyzan31/ecommerce-ci-cd-pipeline.git']]
+        ])
+      }
+    }
+
     stage('Check Docker & Node') {
       steps {
         bat 'docker --version'
@@ -31,68 +43,73 @@ pipeline {
         stage('Frontend Deps') {
           steps {
             dir('frontend') {
-              echo '📦 Installing frontend dependencies with cache...'
-              bat """
-                if not exist "%NPM_CACHE%" mkdir "%NPM_CACHE%"
-                npm ci --prefer-offline --cache %NPM_CACHE%
-              """
+              bat 'npm ci --prefer-offline --cache %NPM_CACHE%'
             }
           }
         }
         stage('Backend Deps') {
           steps {
             dir('backend') {
-              echo '📦 Installing backend dependencies with cache...'
-              bat """
-                if not exist "%NPM_CACHE%" mkdir "%NPM_CACHE%"
-                npm ci --prefer-offline --cache %NPM_CACHE%
-              """
+              bat 'npm ci --prefer-offline --cache %NPM_CACHE%'
             }
           }
         }
       }
     }
 
-    // --- BUILD FRONTEND ---
     stage('Build Frontend') {
       steps {
         dir('frontend') {
-          echo '⚙️ Building frontend...'
           bat 'npm run build'
         }
       }
     }
 
-    // --- TESTS EN PARALLÈLE ---
-    stage('Run Tests (Parallel)') {
-      parallel {
-        stage('Frontend Tests') {
-          steps {
-            dir('frontend') {
-              echo '🧪 Running frontend tests with coverage...'
-              bat 'npx vitest run --coverage || exit /b 0'
-            }
+    // --- TESTS INCRÉMENTAUX ---
+    stage('Run Incremental Tests') {
+      steps {
+        script {
+          // 🔍 Récupération des fichiers modifiés
+          def result = bat(script: 'git diff --name-only HEAD~1 HEAD', returnStdout: true, returnStatus: false)
+          def changes = result.trim().replace("\r", "")
+          echo "🔍 Fichiers modifiés : ${changes}"
+
+          if (changes.contains("fatal:")) {
+            echo "⚠️ Pas de commit précédent → exécution complète."
+            changes = "frontend/ backend/"
           }
-        }
-        stage('Backend Tests') {
-          steps {
-            dir('backend') {
-              bat 'set PATH=%cd%\\node_modules\\.bin;%PATH%'
-              echo '🧪 Running backend tests with coverage...'
-              bat 'npm run test:cov || exit /b 0'
+
+          if (changes == "") {
+            echo "✅ Aucun changement détecté → skip des tests."
+          } else {
+            if (changes.contains("frontend/")) {
+              dir('frontend') {
+                echo "🧪 Tests frontend..."
+                bat 'npx vitest run --coverage || exit /b 0'
+              }
+            }
+
+            if (changes.contains("backend/")) {
+              dir('backend') {
+                echo "🧪 Tests backend..."
+                bat 'npm run test:cov || exit /b 0'
+              }
+            }
+
+            if (!changes.contains("frontend/") && !changes.contains("backend/")) {
+              echo "ℹ️ Aucun test impacté."
             }
           }
         }
       }
     }
 
-    // --- BUILD DOCKER EN PARALLÈLE ---
+    // --- DOCKER BUILDS EN PARALLÈLE ---
     stage('Build Docker Images (Parallel)') {
       parallel {
         stage('Frontend Image') {
           steps {
             script {
-              echo '🐳 Building frontend Docker image...'
               bat 'set DOCKER_BUILDKIT=1'
               bat 'docker build -t ecommerce-frontend ./frontend'
             }
@@ -101,7 +118,6 @@ pipeline {
         stage('Backend Image') {
           steps {
             script {
-              echo '🐳 Building backend Docker image...'
               bat 'set DOCKER_BUILDKIT=1'
               bat 'docker build -t ecommerce-backend ./backend'
             }
@@ -114,20 +130,20 @@ pipeline {
     stage('Deploy Containers') {
       steps {
         script {
-          echo '🧹 Stopping old containers...'
+          echo '🧹 Nettoyage anciens conteneurs...'
           bat 'docker stop ecommerce-frontend || exit /b 0'
           bat 'docker rm ecommerce-frontend || exit /b 0'
           bat 'docker stop ecommerce-backend || exit /b 0'
           bat 'docker rm ecommerce-backend || exit /b 0'
 
-          echo '🚀 Starting new containers...'
+          echo '🚀 Lancement nouveaux conteneurs...'
           bat 'docker run -d --restart always -p 5173:80 --name ecommerce-frontend ecommerce-frontend'
           bat 'docker run -d --restart always -p 4000:4000 --name ecommerce-backend ecommerce-backend'
         }
       }
     }
 
-    // --- ANALYSE SONARQUBE EN PARALLÈLE ---
+    // --- ANALYSE SONARQUBE PARALLÈLE ---
     stage('SonarQube Analysis (Parallel)') {
       parallel {
         stage('Frontend SonarQube') {
