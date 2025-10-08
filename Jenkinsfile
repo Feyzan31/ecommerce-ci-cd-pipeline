@@ -31,7 +31,7 @@ pipeline {
           echo '📦 Installing frontend dependencies with cache...'
           bat """
             if not exist "%NPM_CACHE%" mkdir "%NPM_CACHE%"
-            npm ci --prefer-offline --cache %NPM_CACHE%
+            npm install --prefer-offline --cache %NPM_CACHE%
           """
         }
       }
@@ -43,7 +43,7 @@ pipeline {
           echo '📦 Installing backend dependencies with cache...'
           bat """
             if not exist "%NPM_CACHE%" mkdir "%NPM_CACHE%"
-            npm ci --prefer-offline --cache %NPM_CACHE%
+            npm install --prefer-offline --cache %NPM_CACHE%
           """
         }
       }
