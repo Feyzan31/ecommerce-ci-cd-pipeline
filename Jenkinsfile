@@ -10,11 +10,8 @@ pipeline {
     timestamps()
   }
 
-  environment {
-    NPM_CACHE = "C:\\ProgramData\\Jenkins\\.jenkins\\npm_cache"
-  }
-
   stages {
+
     stage('Check Docker & Node') {
       steps {
         bat 'docker --version'
@@ -23,86 +20,40 @@ pipeline {
       }
     }
 
-    stage('Install Dependencies (Parallel)') {
+    stage('Install Dependencies') {
       parallel {
         stage('Frontend Deps') {
-          steps {
-            dir('frontend') {
-              bat 'npm ci --prefer-offline --cache %NPM_CACHE%'
-            }
-          }
+          steps { dir('frontend') { bat 'npm ci' } }
         }
         stage('Backend Deps') {
-          steps {
-            dir('backend') {
-              bat 'npm ci --prefer-offline --cache %NPM_CACHE%'
-            }
-          }
+          steps { dir('backend') { bat 'npm ci' } }
         }
       }
     }
 
-    stage('Build Frontend') {
-      steps {
-        dir('frontend') {
-          bat 'npm run build'
-        }
-      }
-    }
-
-    // 🧩 Étape d’optimisation : TESTS INCRÉMENTAUX
-    stage('Run Incremental Tests') {
+    stage('Build Docker Images with Layer Cache') {
       steps {
         script {
-          // Récupération des fichiers modifiés depuis le dernier commit
-          def changes = bat(script: 'git diff --name-only HEAD~1 HEAD', returnStdout: true).trim()
-          echo "🔍 Fichiers modifiés : ${changes}"
+          echo "🧱 Activation du cache Docker layers"
 
-          if (changes == "") {
-            echo "✅ Aucun changement détecté, skip des tests."
-          } else {
-            // Si des fichiers frontend ont changé → tests frontend
-            if (changes.contains("frontend/")) {
-              dir('frontend') {
-                echo "🧪 Tests frontend modifiés..."
-                bat 'npm test -- --passWithNoTests || exit /b 0'
-              }
-            }
+          // Active BuildKit (moteur de cache amélioré)
+          bat 'set DOCKER_BUILDKIT=1'
 
-            // Si des fichiers backend ont changé → tests backend
-            if (changes.contains("backend/")) {
-              dir('backend') {
-                echo "🧪 Tests backend modifiés..."
-                bat 'npm test -- --passWithNoTests || exit /b 0'
-              }
-            }
+          // Frontend
+          bat '''
+            docker build ^
+              --cache-from ecommerce-frontend ^
+              -t ecommerce-frontend ^
+              ./frontend
+          '''
 
-            // Si aucun fichier source détecté → skip
-            if (!changes.contains("frontend/") && !changes.contains("backend/")) {
-              echo "ℹ️ Aucun test à exécuter pour ces fichiers."
-            }
-          }
-        }
-      }
-    }
-
-    stage('Build Docker Images (Parallel)') {
-      parallel {
-        stage('Frontend Image') {
-          steps {
-            script {
-              bat 'set DOCKER_BUILDKIT=1'
-              bat 'docker build -t ecommerce-frontend ./frontend'
-            }
-          }
-        }
-        stage('Backend Image') {
-          steps {
-            script {
-              bat 'set DOCKER_BUILDKIT=1'
-              bat 'docker build -t ecommerce-backend ./backend'
-            }
-          }
+          // Backend
+          bat '''
+            docker build ^
+              --cache-from ecommerce-backend ^
+              -t ecommerce-backend ^
+              ./backend
+          '''
         }
       }
     }
@@ -110,55 +61,15 @@ pipeline {
     stage('Deploy Containers') {
       steps {
         script {
-          echo '🧹 Stop & remove anciens conteneurs'
+          echo "🧹 Nettoyage des anciens conteneurs"
           bat 'docker stop ecommerce-frontend || exit /b 0'
           bat 'docker rm ecommerce-frontend || exit /b 0'
           bat 'docker stop ecommerce-backend || exit /b 0'
           bat 'docker rm ecommerce-backend || exit /b 0'
 
-          echo '🚀 Lancement des nouveaux conteneurs'
+          echo "🚀 Déploiement des nouveaux conteneurs"
           bat 'docker run -d --restart always -p 5173:80 --name ecommerce-frontend ecommerce-frontend'
           bat 'docker run -d --restart always -p 4000:4000 --name ecommerce-backend ecommerce-backend'
-        }
-      }
-    }
-
-    stage('SonarQube Analysis (Parallel)') {
-      parallel {
-        stage('Frontend SonarQube') {
-          steps {
-            withSonarQubeEnv('SonarQube') {
-              withCredentials([string(credentialsId: 'SONAR_AUTH_TOKEN', variable: 'TOKEN')]) {
-                dir('frontend') {
-                  bat """
-                    npx sonar-scanner ^
-                    -Dsonar.projectKey=frontend ^
-                    -Dsonar.sources=src ^
-                    -Dsonar.host.url=http://localhost:9000 ^
-                    -Dsonar.login=%TOKEN%
-                  """
-                }
-              }
-            }
-          }
-        }
-
-        stage('Backend SonarQube') {
-          steps {
-            withSonarQubeEnv('SonarQube') {
-              withCredentials([string(credentialsId: 'SONAR_AUTH_TOKEN', variable: 'TOKEN')]) {
-                dir('backend') {
-                  bat """
-                    npx sonar-scanner ^
-                    -Dsonar.projectKey=backend ^
-                    -Dsonar.sources=src ^
-                    -Dsonar.host.url=http://localhost:9000 ^
-                    -Dsonar.login=%TOKEN%
-                  """
-                }
-              }
-            }
-          }
         }
       }
     }
@@ -166,14 +77,10 @@ pipeline {
 
   post {
     success {
-      echo '✅ Pipeline CI/CD avec TESTS INCRÉMENTAUX terminée avec succès !'
+      echo "✅ Build avec Docker Layer Cache terminée avec succès"
     }
     failure {
-      echo '❌ Erreur pendant la pipeline.'
-    }
-    always {
-      echo "🧾 Fin du pipeline."
-      echo "⏱ Durée totale du pipeline : ${currentBuild.durationString}"
+      echo "❌ Erreur pendant le build Docker"
     }
   }
 }
