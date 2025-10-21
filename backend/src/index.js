@@ -19,7 +19,7 @@ app.use(express.json());
 // ✅ Initialisation de la base SQLite
 try {
   init();
-  console.log("📦 Base de données initialisée avec succès");
+  console.log("Base de données initialisée avec succès");
 } catch (err) {
   console.error("❌ Erreur d'initialisation de la base :", err);
   process.exit(1); // stoppe le conteneur proprement
