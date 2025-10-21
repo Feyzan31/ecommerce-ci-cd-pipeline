@@ -8,7 +8,7 @@ router.post("/", (req, res) => {
 
   // ✅ Vérifications de validité des champs
   if (!customer || !customer.name || !customer.email) {
-    return res.status(400).json({ error: "Informations client manquantes" });
+    return res.status(400).json({ error: "Informations client manquante" });
   }
 
   if (!Array.isArray(items) || items.length === 0) {
