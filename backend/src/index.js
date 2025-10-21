@@ -33,8 +33,24 @@ app.use("/api/orders", ordersRouter);
 app.get("/", (req, res) => res.send("🚀 API e-commerce opérationnelle !"));
 app.get("/api/ping", (req, res) => res.json({ status: "ok" }));
 
+const client = require("prom-client");
+const register = new client.Registry();
+
+// Collect default system metrics (CPU, memory, etc.)
+client.collectDefaultMetrics({ register });
+
+// Expose metrics on /metrics endpoint
+app.get("/metrics", async (req, res) => {
+  try {
+    res.set("Content-Type", register.contentType);
+    res.end(await register.metrics());
+  } catch (err) {
+    res.status(500).end(err);
+  }
+});
 // ✅ Lancement du serveur uniquement si exécuté directement
 if (require.main === module) {
+
   const PORT = process.env.PORT || 4000;
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`✅ Serveur en écoute sur http://localhost:${PORT}`);
