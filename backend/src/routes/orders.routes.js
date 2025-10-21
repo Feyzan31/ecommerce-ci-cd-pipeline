@@ -6,7 +6,7 @@ const { db } = require("../db");
 router.post("/", (req, res) => {
   const { customer, items, total } = req.body;
 
-  // ✅ Vérifications de validité des champs
+  // Vérifications de validité des champs
   if (!customer || !customer.name || !customer.email) {
     return res.status(400).json({ error: "Informations client manquantes" });
   }
